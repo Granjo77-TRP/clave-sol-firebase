@@ -30,23 +30,23 @@ const FIRST_LEDGER_BELOW = STAFF_TOP + STAFF_SPACING * 5;
 const STORAGE_KEY = "clave-sol-game-scores";
 
 const RAW_NOTES = [
-  { id: "sol2", name: "Sol", diatonicFromSol3: -8, level: 3, freq: 196 },
-  { id: "la2", name: "Lá", diatonicFromSol3: -7, level: 3, freq: 220 },
-  { id: "si2", name: "Si", diatonicFromSol3: -6, level: 3, freq: 246.94 },
-  { id: "do3", name: "Dó", diatonicFromSol3: -5, level: 2, freq: 261.63 },
-  { id: "re3", name: "Ré", diatonicFromSol3: -4, level: 2, freq: 293.66 },
-  { id: "mi3", name: "Mi", diatonicFromSol3: -3, level: 1, freq: 329.63 },
-  { id: "fa3", name: "Fá", diatonicFromSol3: -2, level: 1, freq: 349.23 },
-  { id: "sol3", name: "Sol", diatonicFromSol3: 0, level: 1, freq: 392 },
-  { id: "la3", name: "Lá", diatonicFromSol3: 1, level: 1, freq: 440 },
-  { id: "si3", name: "Si", diatonicFromSol3: 2, level: 1, freq: 493.88 },
-  { id: "do4", name: "Dó", diatonicFromSol3: 3, level: 1, freq: 523.25 },
-  { id: "re4", name: "Ré", diatonicFromSol3: 4, level: 2, freq: 587.33 },
-  { id: "mi4", name: "Mi", diatonicFromSol3: 5, level: 2, freq: 659.25 },
-  { id: "fa4", name: "Fá", diatonicFromSol3: 6, level: 2, freq: 698.46 },
-  { id: "sol4", name: "Sol", diatonicFromSol3: 7, level: 2, freq: 783.99 },
-  { id: "la4", name: "Lá", diatonicFromSol3: 8, level: 3, freq: 880 },
-  { id: "si4", name: "Si", diatonicFromSol3: 9, level: 3, freq: 987.77 }
+  { id: "sol3", name: "Sol", diatonicFromSol4: -7, level: 3, freq: 196 },
+  { id: "la3", name: "Lá", diatonicFromSol4: -6, level: 3, freq: 220 },
+  { id: "si3", name: "Si", diatonicFromSol4: -5, level: 3, freq: 246.94 },
+  { id: "do4", name: "Dó", diatonicFromSol4: -4, level: 2, freq: 261.63 },
+  { id: "re4", name: "Ré", diatonicFromSol4: -3, level: 2, freq: 293.66 },
+  { id: "mi4", name: "Mi", diatonicFromSol4: -2, level: 1, freq: 329.63 },
+  { id: "fa4", name: "Fá", diatonicFromSol4: -1, level: 1, freq: 349.23 },
+  { id: "sol4", name: "Sol", diatonicFromSol4: 0, level: 1, freq: 392 },
+  { id: "la4", name: "Lá", diatonicFromSol4: 1, level: 1, freq: 440 },
+  { id: "si4", name: "Si", diatonicFromSol4: 2, level: 1, freq: 493.88 },
+  { id: "do5", name: "Dó", diatonicFromSol4: 3, level: 1, freq: 523.25 },
+  { id: "re5", name: "Ré", diatonicFromSol4: 4, level: 2, freq: 587.33 },
+  { id: "mi5", name: "Mi", diatonicFromSol4: 5, level: 2, freq: 659.25 },
+  { id: "fa5", name: "Fá", diatonicFromSol4: 6, level: 2, freq: 698.46 },
+  { id: "sol5", name: "Sol", diatonicFromSol4: 7, level: 2, freq: 783.99 },
+  { id: "la5", name: "Lá", diatonicFromSol4: 8, level: 3, freq: 880 },
+  { id: "si5", name: "Si", diatonicFromSol4: 9, level: 3, freq: 987.77 }
 ];
 
 const LEVELS = {
@@ -80,8 +80,8 @@ function Icon({ children, size = 18 }) {
   );
 }
 
-function getNoteY(diatonicFromSol3) {
-  return SOL_LINE_Y - diatonicFromSol3 * STEP;
+function getNoteY(diatonicFromSol4) {
+  return SOL_LINE_Y - diatonicFromSol4 * STEP;
 }
 
 function isLinePosition(y) {
@@ -103,7 +103,7 @@ function getLedgerLines(y) {
 }
 
 const ALL_NOTES = RAW_NOTES.map((note) => {
-  const y = getNoteY(note.diatonicFromSol3);
+  const y = getNoteY(note.diatonicFromSol4);
   return {
     ...note,
     label: note.name,
@@ -113,23 +113,38 @@ const ALL_NOTES = RAW_NOTES.map((note) => {
   };
 });
 
-function getRandomNote(pool, previousId) {
+function getRegister(note) {
+  if (note.diatonicFromSol4 <= -4) return "low";
+  if (note.diatonicFromSol4 >= 5) return "high";
+  return "middle";
+}
+
+function getRandomNote(pool, previousId, previousRegister) {
   if (!Array.isArray(pool) || pool.length === 0) return null;
   if (pool.length === 1) return pool[0];
 
-  const available = pool.filter((note) => note.id !== previousId);
-  const source = available.length ? available : pool;
+  const registers = ["low", "middle", "high"];
+  const availableRegisters = registers.filter((register) => pool.some((note) => getRegister(note) === register));
+  const preferredRegisters = availableRegisters.filter((register) => register !== previousRegister);
+  const chosenRegisters = preferredRegisters.length ? preferredRegisters : availableRegisters;
+  const chosenRegister = chosenRegisters[Math.floor(Math.random() * chosenRegisters.length)];
+  let source = pool.filter((note) => getRegister(note) === chosenRegister && note.id !== previousId);
+
+  if (!source.length) source = pool.filter((note) => note.id !== previousId);
+  if (!source.length) source = pool;
+
   return source[Math.floor(Math.random() * source.length)];
 }
 
 function runLogicTests() {
+  const sol4 = ALL_NOTES.find((note) => note.id === "sol4");
+  const si5 = ALL_NOTES.find((note) => note.id === "si5");
   const sol3 = ALL_NOTES.find((note) => note.id === "sol3");
-  const si4 = ALL_NOTES.find((note) => note.id === "si4");
-  const sol2 = ALL_NOTES.find((note) => note.id === "sol2");
-  const do4 = ALL_NOTES.find((note) => note.id === "do4");
-  const mi3 = ALL_NOTES.find((note) => note.id === "mi3");
-  const oneNote = getRandomNote([sol3].filter(Boolean), sol3?.id);
-  const differentNote = getRandomNote([sol3, si4].filter(Boolean), sol3?.id);
+  const do5 = ALL_NOTES.find((note) => note.id === "do5");
+  const mi4 = ALL_NOTES.find((note) => note.id === "mi4");
+  const re4 = ALL_NOTES.find((note) => note.id === "re4");
+  const oneNote = getRandomNote([sol4].filter(Boolean), sol4?.id, "middle");
+  const differentNote = getRandomNote([sol4, si5].filter(Boolean), sol4?.id, "middle");
   const allYPositionsAreNumbers = ALL_NOTES.every((note) => Number.isFinite(note.y));
   const allNotesHaveNames = ALL_NOTES.every((note) => ANSWER_NAMES.includes(note.name));
   const allFrequenciesAreValid = ALL_NOTES.every((note) => Number.isFinite(note.freq) && note.freq > 0);
@@ -138,14 +153,15 @@ function runLogicTests() {
   const sortedFromLowToHigh = ALL_NOTES.every((note, index, array) => index === 0 || note.diatonicFromSol3 > array[index - 1].diatonicFromSol3);
 
   return [
-    sol3?.y === SOL_LINE_Y,
-    sol3?.type === "line",
-    do4?.type === "space",
-    mi3?.type === "space",
-    si4?.ledgers.includes(FIRST_LEDGER_ABOVE),
-    sol2?.ledgers.includes(FIRST_LEDGER_BELOW),
-    oneNote?.id === sol3?.id,
-    differentNote?.id !== sol3?.id,
+    sol4?.y === SOL_LINE_Y,
+    sol4?.type === "line",
+    do5?.type === "space",
+    mi4?.type === "line",
+    re4?.type === "space",
+    si5?.ledgers.includes(FIRST_LEDGER_ABOVE),
+    sol3?.ledgers.includes(FIRST_LEDGER_BELOW),
+    oneNote?.id === sol4?.id,
+    differentNote?.id !== sol4?.id,
     allYPositionsAreNumbers,
     allNotesHaveNames,
     allFrequenciesAreValid,
@@ -254,6 +270,7 @@ export default function App() {
   const audioContextRef = useRef(null);
   const nextNoteTimeoutRef = useRef(null);
   const lastNoteIdRef = useRef(null);
+  const lastRegisterRef = useRef(null);
   const answersRef = useRef([]);
   const scoreRef = useRef(0);
   const finishingRef = useRef(false);
@@ -304,10 +321,11 @@ export default function App() {
   }, []);
 
   const pickAndSetNote = useCallback((pool = notePool) => {
-    const next = getRandomNote(pool, lastNoteIdRef.current);
+    const next = getRandomNote(pool, lastNoteIdRef.current, lastRegisterRef.current);
     if (!next) return;
 
     lastNoteIdRef.current = next.id;
+    lastRegisterRef.current = getRegister(next);
     setCurrent(next);
     setLastAnswer(null);
     setWaitingForNextNote(false);
@@ -435,6 +453,7 @@ export default function App() {
     answersRef.current = [];
     scoreRef.current = 0;
     lastNoteIdRef.current = null;
+    lastRegisterRef.current = null;
     setSaveError("");
     setScore(0);
     setStreak(0);
@@ -514,6 +533,7 @@ export default function App() {
     answersRef.current = [];
     scoreRef.current = 0;
     lastNoteIdRef.current = null;
+    lastRegisterRef.current = null;
     setRunning(false);
     setSaving(false);
     setSaveError("");
