@@ -114,8 +114,8 @@ const ALL_NOTES = RAW_NOTES.map((note) => {
 });
 
 function getRegister(note) {
-  if (note.diatonicFromSol4 <= -4) return "low";
-  if (note.diatonicFromSol4 >= 5) return "high";
+  if (note.diatonicFromSol4 <= -3) return "low";
+  if (note.diatonicFromSol4 >= 3) return "high";
   return "middle";
 }
 
@@ -123,13 +123,19 @@ function getRandomNote(pool, previousId, previousRegister) {
   if (!Array.isArray(pool) || pool.length === 0) return null;
   if (pool.length === 1) return pool[0];
 
-  const registers = ["low", "middle", "high"];
-  const availableRegisters = registers.filter((register) => pool.some((note) => getRegister(note) === register));
-  const preferredRegisters = availableRegisters.filter((register) => register !== previousRegister);
-  const chosenRegisters = preferredRegisters.length ? preferredRegisters : availableRegisters;
-  const chosenRegister = chosenRegisters[Math.floor(Math.random() * chosenRegisters.length)];
-  let source = pool.filter((note) => getRegister(note) === chosenRegister && note.id !== previousId);
+  const lowNotes = pool.filter((note) => getRegister(note) === "low");
+  const middleNotes = pool.filter((note) => getRegister(note) === "middle");
+  const highNotes = pool.filter((note) => getRegister(note) === "high");
 
+  let preferredPool = pool;
+
+  if (previousRegister === "low" && highNotes.length) preferredPool = highNotes;
+  else if (previousRegister === "high" && lowNotes.length) preferredPool = lowNotes;
+  else if (previousRegister === "middle") preferredPool = Math.random() < 0.5 && lowNotes.length ? lowNotes : highNotes.length ? highNotes : pool;
+  else if (lowNotes.length && highNotes.length) preferredPool = Math.random() < 0.5 ? lowNotes : highNotes;
+  else if (middleNotes.length) preferredPool = middleNotes;
+
+  let source = preferredPool.filter((note) => note.id !== previousId);
   if (!source.length) source = pool.filter((note) => note.id !== previousId);
   if (!source.length) source = pool;
 
@@ -246,8 +252,8 @@ function Staff({ note, reveal }) {
 export default function App() {
   const [studentInput, setStudentInput] = useState("");
   const [studentName, setStudentName] = useState("");
-  const [mode, setMode] = useState("learn");
-  const [level, setLevel] = useState(1);
+  const [mode] = useState("test");
+  const [level, setLevel] = useState(3);
   const [filter, setFilter] = useState("all");
   const [timeSettings, setTimeSettings] = useState({
     1: LEVELS[1].defaultTime,
@@ -258,7 +264,7 @@ export default function App() {
   const [current, setCurrent] = useState(null);
   const [lastAnswer, setLastAnswer] = useState(null);
   const [waitingForNextNote, setWaitingForNextNote] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(LEVELS[1].defaultTime);
+  const [timeLeft, setTimeLeft] = useState(LEVELS[3].defaultTime);
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
   const [answers, setAnswers] = useState([]);
@@ -276,13 +282,13 @@ export default function App() {
   const finishingRef = useRef(false);
 
   const notePool = useMemo(() => {
-    let pool = ALL_NOTES.filter((note) => note.level <= level);
+    let pool = ALL_NOTES;
 
     if (filter === "lines") pool = pool.filter((note) => note.type === "line");
     if (filter === "spaces") pool = pool.filter((note) => note.type === "space");
 
-    return pool.length ? pool : ALL_NOTES.filter((note) => note.level <= level);
-  }, [level, filter]);
+    return pool.length ? pool : ALL_NOTES;
+  }, [filter]);
 
   const correctCount = useMemo(() => answers.filter((answerItem) => answerItem.correto).length, [answers]);
   const accuracy = answers.length ? Math.round((correctCount / answers.length) * 100) : 0;
@@ -505,7 +511,7 @@ export default function App() {
 
     nextNoteTimeoutRef.current = setTimeout(() => {
       pickAndSetNote(notePool);
-    }, mode === "learn" ? 750 : 450);
+    }, 450);
   }
 
   function exportReport() {
@@ -588,12 +594,6 @@ export default function App() {
         <aside className="panel">
           <h2>Configuração</h2>
 
-          <label>Modo</label>
-          <div className="segmented">
-            <button className={mode === "learn" ? "active" : ""} onClick={() => setMode("learn")} disabled={running}>Aprender</button>
-            <button className={mode === "test" ? "active" : ""} onClick={() => setMode("test")} disabled={running}>Teste</button>
-          </div>
-
           <label>Nível</label>
           <div className="levelCards">
             {[1, 2, 3].map((levelNumber) => (
@@ -649,7 +649,7 @@ export default function App() {
 
         <section className="gamePanel">
           <div className="hud">
-            <div><Icon>⏱️</Icon> {mode === "test" ? `${timeLeft}s` : "Sem limite"}</div>
+            <div><Icon>⏱️</Icon> `${timeLeft}s`</div>
             <div>Sequência: {streak}</div>
             <div>Acerto: {accuracy}%</div>
           </div>
@@ -680,7 +680,7 @@ export default function App() {
               <strong>{index + 1}</strong>
               <div>
                 <span>{item.studentName}</span>
-                <small>Nível {item.level} · {item.mode === "test" ? "Teste" : "Aprender"} · {item.accuracy ?? 0}%</small>
+                <small>Nível {item.level} · {item.accuracy ?? 0}%</small>
               </div>
               <b>{item.score}</b>
             </div>
