@@ -28,28 +28,27 @@ const SOL_LINE_Y = STAFF_TOP + STAFF_SPACING * 3;
 const FIRST_LEDGER_ABOVE = STAFF_TOP - STAFF_SPACING;
 const FIRST_LEDGER_BELOW = STAFF_TOP + STAFF_SPACING * 5;
 const STORAGE_KEY = "clave-sol-game-scores";
+const DEFAULT_TIME = 60;
 
 const RAW_NOTES = [
-  { id: "sol3", name: "Sol", diatonicFromSol4: -7, level: 3, freq: 196 },
-  { id: "la3", name: "Lá", diatonicFromSol4: -6, level: 3, freq: 220 },
-  { id: "si3", name: "Si", diatonicFromSol4: -5, level: 3, freq: 246.94 },
-  { id: "do4", name: "Dó", diatonicFromSol4: -4, level: 2, freq: 261.63 },
-  { id: "re4", name: "Ré", diatonicFromSol4: -3, level: 2, freq: 293.66 },
-  { id: "mi4", name: "Mi", diatonicFromSol4: -2, level: 1, freq: 329.63 },
-  { id: "fa4", name: "Fá", diatonicFromSol4: -1, level: 1, freq: 349.23 },
-  { id: "sol4", name: "Sol", diatonicFromSol4: 0, level: 1, freq: 392 },
-  { id: "la4", name: "Lá", diatonicFromSol4: 1, level: 1, freq: 440 },
-  { id: "si4", name: "Si", diatonicFromSol4: 2, level: 1, freq: 493.88 },
-  { id: "do5", name: "Dó", diatonicFromSol4: 3, level: 1, freq: 523.25 },
-  { id: "re5", name: "Ré", diatonicFromSol4: 4, level: 2, freq: 587.33 },
-  { id: "mi5", name: "Mi", diatonicFromSol4: 5, level: 2, freq: 659.25 },
-  { id: "fa5", name: "Fá", diatonicFromSol4: 6, level: 2, freq: 698.46 },
-  { id: "sol5", name: "Sol", diatonicFromSol4: 7, level: 2, freq: 783.99 },
-  { id: "la5", name: "Lá", diatonicFromSol4: 8, level: 3, freq: 880 },
-  { id: "si5", name: "Si", diatonicFromSol4: 9, level: 3, freq: 987.77 }
+  { id: "sol3", name: "Sol", diatonicFromSol4: -7, freq: 196 },
+  { id: "la3", name: "Lá", diatonicFromSol4: -6, freq: 220 },
+  { id: "si3", name: "Si", diatonicFromSol4: -5, freq: 246.94 },
+  { id: "do4", name: "Dó", diatonicFromSol4: -4, freq: 261.63 },
+  { id: "re4", name: "Ré", diatonicFromSol4: -3, freq: 293.66 },
+  { id: "mi4", name: "Mi", diatonicFromSol4: -2, freq: 329.63 },
+  { id: "fa4", name: "Fá", diatonicFromSol4: -1, freq: 349.23 },
+  { id: "sol4", name: "Sol", diatonicFromSol4: 0, freq: 392 },
+  { id: "la4", name: "Lá", diatonicFromSol4: 1, freq: 440 },
+  { id: "si4", name: "Si", diatonicFromSol4: 2, freq: 493.88 },
+  { id: "do5", name: "Dó", diatonicFromSol4: 3, freq: 523.25 },
+  { id: "re5", name: "Ré", diatonicFromSol4: 4, freq: 587.33 },
+  { id: "mi5", name: "Mi", diatonicFromSol4: 5, freq: 659.25 },
+  { id: "fa5", name: "Fá", diatonicFromSol4: 6, freq: 698.46 },
+  { id: "sol5", name: "Sol", diatonicFromSol4: 7, freq: 783.99 },
+  { id: "la5", name: "Lá", diatonicFromSol4: 8, freq: 880 },
+  { id: "si5", name: "Si", diatonicFromSol4: 9, freq: 987.77 }
 ];
-
-const DEFAULT_TIME = 60;
 
 const ANSWER_NAMES = ["Dó", "Ré", "Mi", "Fá", "Sol", "Lá", "Si"];
 
@@ -101,6 +100,7 @@ function getLedgerLines(y) {
 const ALL_NOTES = RAW_NOTES.map((note) => {
   const y = getNoteY(note.diatonicFromSol4);
   const ledgers = getLedgerLines(y);
+
   return {
     ...note,
     label: note.name,
@@ -112,25 +112,21 @@ const ALL_NOTES = RAW_NOTES.map((note) => {
 });
 
 function getRegister(note) {
-  if (note.zone === "outside") return "outside";
-  return "inside";
+  return note.zone === "outside" ? "outside" : "inside";
 }
 
 function getRandomNote(pool, previousId, previousRegister) {
   if (!Array.isArray(pool) || pool.length === 0) return null;
   if (pool.length === 1) return pool[0];
 
-  const lowNotes = pool.filter((note) => getRegister(note) === "low");
-  const middleNotes = pool.filter((note) => getRegister(note) === "middle");
-  const highNotes = pool.filter((note) => getRegister(note) === "high");
+  const insideNotes = pool.filter((note) => getRegister(note) === "inside");
+  const outsideNotes = pool.filter((note) => getRegister(note) === "outside");
 
   let preferredPool = pool;
 
-  if (previousRegister === "low" && highNotes.length) preferredPool = highNotes;
-  else if (previousRegister === "high" && lowNotes.length) preferredPool = lowNotes;
-  else if (previousRegister === "middle") preferredPool = Math.random() < 0.5 && lowNotes.length ? lowNotes : highNotes.length ? highNotes : pool;
-  else if (lowNotes.length && highNotes.length) preferredPool = Math.random() < 0.5 ? lowNotes : highNotes;
-  else if (middleNotes.length) preferredPool = middleNotes;
+  if (previousRegister === "inside" && outsideNotes.length) preferredPool = outsideNotes;
+  else if (previousRegister === "outside" && insideNotes.length) preferredPool = insideNotes;
+  else if (insideNotes.length && outsideNotes.length) preferredPool = Math.random() < 0.5 ? insideNotes : outsideNotes;
 
   let source = preferredPool.filter((note) => note.id !== previousId);
   if (!source.length) source = pool.filter((note) => note.id !== previousId);
@@ -141,36 +137,25 @@ function getRandomNote(pool, previousId, previousRegister) {
 
 function runLogicTests() {
   const sol4 = ALL_NOTES.find((note) => note.id === "sol4");
+  const re4 = ALL_NOTES.find((note) => note.id === "re4");
+  const mi4 = ALL_NOTES.find((note) => note.id === "mi4");
   const si5 = ALL_NOTES.find((note) => note.id === "si5");
   const sol3 = ALL_NOTES.find((note) => note.id === "sol3");
-  const do5 = ALL_NOTES.find((note) => note.id === "do5");
-  const mi4 = ALL_NOTES.find((note) => note.id === "mi4");
-  const re4 = ALL_NOTES.find((note) => note.id === "re4");
-  const oneNote = getRandomNote([sol4].filter(Boolean), sol4?.id, "middle");
-  const differentNote = getRandomNote([sol4, si5].filter(Boolean), sol4?.id, "middle");
-  const allYPositionsAreNumbers = ALL_NOTES.every((note) => Number.isFinite(note.y));
-  const allNotesHaveNames = ALL_NOTES.every((note) => ANSWER_NAMES.includes(note.name));
-  const allFrequenciesAreValid = ALL_NOTES.every((note) => Number.isFinite(note.freq) && note.freq > 0);
-  const uniqueIds = new Set(ALL_NOTES.map((note) => note.id)).size === ALL_NOTES.length;
-  const allLevelsAreValid = ALL_NOTES.every((note) => [1, 2, 3].includes(note.level));
-  const sortedFromLowToHigh = ALL_NOTES.every((note, index, array) => index === 0 || note.diatonicFromSol3 > array[index - 1].diatonicFromSol3);
+  const differentNote = getRandomNote([sol4, si5].filter(Boolean), sol4?.id, "inside");
 
   return [
     sol4?.y === SOL_LINE_Y,
     sol4?.type === "line",
-    do5?.type === "space",
-    mi4?.type === "line",
     re4?.type === "space",
+    mi4?.type === "line",
+    sol3?.zone === "outside",
+    si5?.zone === "outside",
     si5?.ledgers.includes(FIRST_LEDGER_ABOVE),
     sol3?.ledgers.includes(FIRST_LEDGER_BELOW),
-    oneNote?.id === sol4?.id,
     differentNote?.id !== sol4?.id,
-    allYPositionsAreNumbers,
-    allNotesHaveNames,
-    allFrequenciesAreValid,
-    uniqueIds,
-    allLevelsAreValid,
-    sortedFromLowToHigh
+    ALL_NOTES.every((note) => Number.isFinite(note.y)),
+    ALL_NOTES.every((note) => ANSWER_NAMES.includes(note.name)),
+    new Set(ALL_NOTES.map((note) => note.id)).size === ALL_NOTES.length
   ].every(Boolean);
 }
 
@@ -196,11 +181,8 @@ function saveLocalScore(scoreEntry) {
   return updated;
 }
 
-function filterAndSortScores(scores, mode) {
-  return scores
-    .filter((item) => item.mode === mode)
-    .sort((a, b) => Number(b.score || 0) - Number(a.score || 0))
-    .slice(0, 20);
+function filterAndSortScores(scores) {
+  return scores.sort((a, b) => Number(b.score || 0) - Number(a.score || 0)).slice(0, 20);
 }
 
 function downloadCsv(filename, rows) {
@@ -249,8 +231,6 @@ function Staff({ note, reveal }) {
 export default function App() {
   const [studentInput, setStudentInput] = useState("");
   const [studentName, setStudentName] = useState("");
-  const [mode] = useState("test");
-  
   const [filter, setFilter] = useState("all");
   const [gameTime, setGameTime] = useState(DEFAULT_TIME);
   const [running, setRunning] = useState(false);
@@ -289,8 +269,8 @@ export default function App() {
   const accuracy = answers.length ? Math.round((correctCount / answers.length) * 100) : 0;
 
   const updateLocalLeaderboard = useCallback(() => {
-    setLeaderboard(filterAndSortScores(getLocalScores(), mode));
-  }, [mode]);
+    setLeaderboard(filterAndSortScores(getLocalScores()));
+  }, []);
 
   const playTone = useCallback((freq) => {
     try {
@@ -350,7 +330,6 @@ export default function App() {
     const scoreEntry = {
       studentName,
       score: scoreRef.current,
-      mode,
       filter,
       totalAnswers: total,
       correctAnswers: correct,
@@ -379,7 +358,7 @@ export default function App() {
       setCurrent(null);
       setLastAnswer(null);
     }
-  }, [clearNextNoteTimeout, filter, level, mode, studentName, updateLocalLeaderboard]);
+  }, [clearNextNoteTimeout, filter, studentName, updateLocalLeaderboard]);
 
   useEffect(() => {
     answersRef.current = answers;
@@ -404,12 +383,7 @@ export default function App() {
       return undefined;
     }
 
-    const scoresQuery = query(
-      collection(db, "scores"),
-      where("mode", "==", mode),
-      orderBy("score", "desc"),
-      limit(20)
-    );
+    const scoresQuery = query(collection(db, "scores"), orderBy("score", "desc"), limit(20));
 
     const unsubscribe = onSnapshot(
       scoresQuery,
@@ -423,10 +397,10 @@ export default function App() {
     );
 
     return unsubscribe;
-  }, [mode, updateLocalLeaderboard]);
+  }, [updateLocalLeaderboard]);
 
   useEffect(() => {
-    if (!running || mode !== "test") return undefined;
+    if (!running) return undefined;
 
     if (timeLeft <= 0) {
       finishGame();
@@ -435,7 +409,7 @@ export default function App() {
 
     const timer = setTimeout(() => setTimeLeft((value) => value - 1), 1000);
     return () => clearTimeout(timer);
-  }, [finishGame, mode, running, timeLeft]);
+  }, [finishGame, running, timeLeft]);
 
   useEffect(() => () => clearNextNoteTimeout(), [clearNextNoteTimeout]);
 
@@ -474,10 +448,10 @@ export default function App() {
     const gained = correct ? 10 + Math.min(streak, 5) * 2 : 0;
     const entry = {
       aluno: studentName,
-      modo: mode,
       filtro: filter,
       nota: current.name,
       notaId: current.id,
+      zona: current.zone,
       resposta: noteName,
       correto: correct,
       data: new Date().toISOString()
@@ -508,13 +482,13 @@ export default function App() {
 
   function exportReport() {
     const rows = [
-      ["Aluno", "Modo", "Filtro", "Nota apresentada", "ID da nota", "Resposta", "Correto", "Data"],
+      ["Aluno", "Filtro", "Nota apresentada", "ID da nota", "Zona", "Resposta", "Correto", "Data"],
       ...answers.map((answerItem) => [
         answerItem.aluno,
-        answerItem.modo,
         answerItem.filtro,
         answerItem.nota,
         answerItem.notaId,
+        answerItem.zona,
         answerItem.resposta,
         answerItem.correto ? "Sim" : "Não",
         answerItem.data
@@ -571,7 +545,7 @@ export default function App() {
         <div>
           <p className="eyebrow"><Icon>🎓</Icon> Aluno: {studentName}</p>
           <h1>Clave de Sol Game</h1>
-          <p>Notas entre o Sol grave e o Si agudo, com ranking online e relatório individual.</p>
+          <p>Notas dentro e fora do pentagrama, com alternância entre registos.</p>
         </div>
 
         <div className="scoreBox">
@@ -630,7 +604,7 @@ export default function App() {
 
         <section className="gamePanel">
           <div className="hud">
-            <div><Icon>⏱️</Icon> `${timeLeft}s`</div>
+            <div><Icon>⏱️</Icon> {timeLeft}s</div>
             <div>Sequência: {streak}</div>
             <div>Acerto: {accuracy}%</div>
           </div>
