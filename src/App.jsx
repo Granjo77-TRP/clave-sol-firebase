@@ -49,11 +49,7 @@ const RAW_NOTES = [
   { id: "si5", name: "Si", diatonicFromSol4: 9, level: 3, freq: 987.77 }
 ];
 
-const LEVELS = {
-  1: { title: "Pentagrama", description: "Notas centrais", defaultTime: 60 },
-  2: { title: "Alargamento", description: "Mais notas graves e agudas", defaultTime: 50 },
-  3: { title: "Extensão completa", description: "Do Sol grave ao Si agudo", defaultTime: 45 }
-};
+const DEFAULT_TIME = 60;
 
 const ANSWER_NAMES = ["Dó", "Ré", "Mi", "Fá", "Sol", "Lá", "Si"];
 
@@ -104,19 +100,20 @@ function getLedgerLines(y) {
 
 const ALL_NOTES = RAW_NOTES.map((note) => {
   const y = getNoteY(note.diatonicFromSol4);
+  const ledgers = getLedgerLines(y);
   return {
     ...note,
     label: note.name,
     y,
     type: isLinePosition(y) ? "line" : "space",
-    ledgers: getLedgerLines(y)
+    ledgers,
+    zone: ledgers.length ? "outside" : "inside"
   };
 });
 
 function getRegister(note) {
-  if (note.diatonicFromSol4 <= -3) return "low";
-  if (note.diatonicFromSol4 >= 3) return "high";
-  return "middle";
+  if (note.zone === "outside") return "outside";
+  return "inside";
 }
 
 function getRandomNote(pool, previousId, previousRegister) {
@@ -199,9 +196,9 @@ function saveLocalScore(scoreEntry) {
   return updated;
 }
 
-function filterAndSortScores(scores, mode, level) {
+function filterAndSortScores(scores, mode) {
   return scores
-    .filter((item) => item.mode === mode && item.level === level)
+    .filter((item) => item.mode === mode)
     .sort((a, b) => Number(b.score || 0) - Number(a.score || 0))
     .slice(0, 20);
 }
@@ -253,18 +250,14 @@ export default function App() {
   const [studentInput, setStudentInput] = useState("");
   const [studentName, setStudentName] = useState("");
   const [mode] = useState("test");
-  const [level, setLevel] = useState(3);
+  
   const [filter, setFilter] = useState("all");
-  const [timeSettings, setTimeSettings] = useState({
-    1: LEVELS[1].defaultTime,
-    2: LEVELS[2].defaultTime,
-    3: LEVELS[3].defaultTime
-  });
+  const [gameTime, setGameTime] = useState(DEFAULT_TIME);
   const [running, setRunning] = useState(false);
   const [current, setCurrent] = useState(null);
   const [lastAnswer, setLastAnswer] = useState(null);
   const [waitingForNextNote, setWaitingForNextNote] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(LEVELS[3].defaultTime);
+  const [timeLeft, setTimeLeft] = useState(DEFAULT_TIME);
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
   const [answers, setAnswers] = useState([]);
@@ -286,6 +279,8 @@ export default function App() {
 
     if (filter === "lines") pool = pool.filter((note) => note.type === "line");
     if (filter === "spaces") pool = pool.filter((note) => note.type === "space");
+    if (filter === "inside") pool = pool.filter((note) => note.zone === "inside");
+    if (filter === "outside") pool = pool.filter((note) => note.zone === "outside");
 
     return pool.length ? pool : ALL_NOTES;
   }, [filter]);
@@ -294,8 +289,8 @@ export default function App() {
   const accuracy = answers.length ? Math.round((correctCount / answers.length) * 100) : 0;
 
   const updateLocalLeaderboard = useCallback(() => {
-    setLeaderboard(filterAndSortScores(getLocalScores(), mode, level));
-  }, [level, mode]);
+    setLeaderboard(filterAndSortScores(getLocalScores(), mode));
+  }, [mode]);
 
   const playTone = useCallback((freq) => {
     try {
@@ -356,7 +351,6 @@ export default function App() {
       studentName,
       score: scoreRef.current,
       mode,
-      level,
       filter,
       totalAnswers: total,
       correctAnswers: correct,
@@ -413,7 +407,6 @@ export default function App() {
     const scoresQuery = query(
       collection(db, "scores"),
       where("mode", "==", mode),
-      where("level", "==", level),
       orderBy("score", "desc"),
       limit(20)
     );
@@ -430,7 +423,7 @@ export default function App() {
     );
 
     return unsubscribe;
-  }, [level, mode, updateLocalLeaderboard]);
+  }, [mode, updateLocalLeaderboard]);
 
   useEffect(() => {
     if (!running || mode !== "test") return undefined;
@@ -464,7 +457,7 @@ export default function App() {
     setScore(0);
     setStreak(0);
     setAnswers([]);
-    setTimeLeft(timeSettings[level]);
+    setTimeLeft(gameTime);
     setRunning(true);
     setLastAnswer(null);
     setWaitingForNextNote(false);
@@ -482,7 +475,6 @@ export default function App() {
     const entry = {
       aluno: studentName,
       modo: mode,
-      nivel: level,
       filtro: filter,
       nota: current.name,
       notaId: current.id,
@@ -516,11 +508,10 @@ export default function App() {
 
   function exportReport() {
     const rows = [
-      ["Aluno", "Modo", "Nível", "Filtro", "Nota apresentada", "ID da nota", "Resposta", "Correto", "Data"],
+      ["Aluno", "Modo", "Filtro", "Nota apresentada", "ID da nota", "Resposta", "Correto", "Data"],
       ...answers.map((answerItem) => [
         answerItem.aluno,
         answerItem.modo,
-        answerItem.nivel,
         answerItem.filtro,
         answerItem.nota,
         answerItem.notaId,
@@ -594,41 +585,31 @@ export default function App() {
         <aside className="panel">
           <h2>Configuração</h2>
 
-          <label>Nível</label>
-          <div className="levelCards">
-            {[1, 2, 3].map((levelNumber) => (
-              <button key={levelNumber} className={level === levelNumber ? "level active" : "level"} onClick={() => setLevel(levelNumber)} disabled={running}>
-                <strong>{levelNumber}</strong>
-                <span>{LEVELS[levelNumber].title}</span>
-              </button>
-            ))}
-          </div>
-
           <label>Notas</label>
           <select value={filter} onChange={(event) => setFilter(event.target.value)} disabled={running}>
             <option value="all">Todas</option>
             <option value="lines">Só linhas</option>
             <option value="spaces">Só espaços</option>
+            <option value="inside">Só dentro do pentagrama</option>
+            <option value="outside">Só fora do pentagrama</option>
           </select>
 
-          <label>Tempo por nível</label>
-          {[1, 2, 3].map((levelNumber) => (
-            <div className="timeRow" key={levelNumber}>
-              <span>Nível {levelNumber}</span>
-              <input
-                type="number"
-                min="10"
-                max="180"
-                value={timeSettings[levelNumber]}
-                onChange={(event) => {
-                  const value = Math.min(180, Math.max(10, Number(event.target.value) || 10));
-                  setTimeSettings((previous) => ({ ...previous, [levelNumber]: value }));
-                }}
-                disabled={running}
-              />
-              <small>s</small>
-            </div>
-          ))}
+          <label>Tempo do jogo</label>
+          <div className="timeRow">
+            <span>Tempo</span>
+            <input
+              type="number"
+              min="10"
+              max="180"
+              value={gameTime}
+              onChange={(event) => {
+                const value = Math.min(180, Math.max(10, Number(event.target.value) || 10));
+                setGameTime(value);
+              }}
+              disabled={running}
+            />
+            <small>s</small>
+          </div>
 
           {!running ? (
             <button className="primary" onClick={startGame} disabled={saving}>Começar</button>
@@ -674,13 +655,13 @@ export default function App() {
         <aside className="panel leaderboard">
           <h2><Icon>🏆</Icon> Ranking</h2>
           {rankingError && <p className="errorMessage">{rankingError}</p>}
-          {!leaderboard.length && <p>Ainda não há resultados para este modo e nível.</p>}
+          {!leaderboard.length && <p>Ainda não há resultados.</p>}
           {leaderboard.map((item, index) => (
             <div className="rankItem" key={item.id || `${item.studentName}-${index}`}>
               <strong>{index + 1}</strong>
               <div>
                 <span>{item.studentName}</span>
-                <small>Nível {item.level} · {item.accuracy ?? 0}%</small>
+                <small>{item.accuracy ?? 0}%</small>
               </div>
               <b>{item.score}</b>
             </div>
