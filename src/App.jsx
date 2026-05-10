@@ -13,14 +13,13 @@ import {
 } from "firebase/firestore";
 
 const FIREBASE_CONFIG = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: ""
+  apiKey: "AIzaSyCZTTgE8-ul_PIOrKL0lFlAPITDC16sxP4",
+  authDomain: "clavedesolfirebird.firebaseapp.com",
+  projectId: "clavedesolfirebird",
+  storageBucket: "clavedesolfirebird.firebasestorage.app",
+  messagingSenderId: "880674629950",
+  appId: "1:880674629950:web:cc788cd259d88d3fa1e46f"
 };
-
 const STEP = 8;
 const STAFF_TOP = 26;
 const STAFF_SPACING = 16;
